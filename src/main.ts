@@ -34,7 +34,7 @@ interface Pokemon {
   types: TypeSlot[]
   is_guessed: boolean
   is_hidden: boolean
-  image: p5.Image
+  image?: p5.Image
 }
 
 interface TypeSlot {
@@ -87,7 +87,6 @@ async function get_pokemon_list(limit: number): Promise<Pokemon[]> {
       sprite: img_link,
       is_hidden: true,
       is_guessed: false,
-      image: null
     }
     pokemon_array.push(pokemon);
   }
@@ -115,9 +114,6 @@ const sketch = (p: p5): any => {
     has_won: false,
     pokemon_list: [],
     pairs_discovered: 0
-  }
-
-  function suc(p1: p5.Image) {
   }
 
   function fail(p1: Event) {
@@ -194,7 +190,10 @@ const sketch = (p: p5): any => {
             p.strokeWeight(4);
             p.rect((col * CARD_W) + (PADDING * col), (row * CARD_H), CARD_W, CARD_H)
           } else {
-            p.image(pokemon.image, (col * CARD_W) + (PADDING * col), (row * CARD_H))
+            if (!pokemon.image) {
+              continue
+            }
+            p.image(pokemon?.image, (col * CARD_W) + (PADDING * col), (row * CARD_H))
           }
         }
       }
