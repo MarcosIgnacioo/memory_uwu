@@ -4,7 +4,7 @@ import p5 from 'p5'
 const WIDTH = 1200
 const HEIGHT = 800
 const PAIRS = 10
-const PAIRS_TO_WIN = 4
+const PAIRS_TO_WIN = 2
 const PADDING = 10
 const CARD_W = (WIDTH) / (PAIRS) - PADDING
 const CARD_H = HEIGHT / 5
@@ -18,12 +18,13 @@ interface Vector2 {
 }
 
 interface State {
-  prev_selection: number
-  current_selection: number
-  is_correct: boolean
+  selections: Pokemon[]
+  pairs_discovered: number
+  has_won: boolean
   click_position: Vector2
   pokemon_list: Pokemon[][]
   row_number: number
+  last_update: number
 }
 
 interface Pokemon {
@@ -78,23 +79,19 @@ async function init_game_state(state: State) {
   }
 }
 
-const x = [1, 2, 3];
-const y = x.map(n => n);
-
-
 const sketch = (p: p5): any => {
 
-
   const game_state: State = {
-    prev_selection: 0,
-    current_selection: 0,
+    row_number: 0,
+    last_update: p.millis(),
+    selections: [],
     click_position: { x: 0, y: 0 },
-    is_correct: false,
-    pokemon_list: []
+    has_won: false,
+    pokemon_list: [],
+    pairs_discovered: 0
   }
 
   function suc(p1: p5.Image) {
-    console.log("todo bien", p1);
   }
 
   function fail(p1: Event) {
@@ -104,12 +101,11 @@ const sketch = (p: p5): any => {
 
 
   p.preload = async function() {
-    //const img = p.loadImage('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/21.png')
     await init_game_state(game_state)
     for (let row = 0; row < game_state.pokemon_list.length; row++) {
       for (let col = 0; col < game_state.pokemon_list[row].length; col++) {
         const pokemon = game_state.pokemon_list[row][col];
-        game_state.pokemon_list[row][col].image = p.loadImage(pokemon.sprite, suc, fail);
+        game_state.pokemon_list[row][col].image = p.loadImage(pokemon.sprite, undefined, fail);
       }
     }
   }
@@ -118,8 +114,46 @@ const sketch = (p: p5): any => {
     p.createCanvas(WIDTH, HEIGHT);
   }
 
-  function get_random_rgb(): number[] {
-    return [Math.random() * 255, Math.random() * 255, Math.random() * 255]
+  // case player has selected the amount of cards to check if he is correct
+  // if the player has the correct pairs,
+  //    we set the is_guessed flag in the pokemon within the selections array
+  //    we do the game_state.pairs_discovered++
+  // if the player is not correct
+  //    we toggle the is_hidden to true so the cards are hidden
+  //    and reset the selections array game_state.selections = []
+  // if the player has pairs_discovered === PAIRS they win cause they cool i guess
+  function check_game_state(game_state: State) {
+    if (game_state.selections.length != PAIRS_TO_WIN) {
+      return
+    }
+    const first_selection = game_state.selections[0]
+    const is_correct = game_state.selections.every((selection) => selection.id == first_selection.id);
+    console.log(is_correct);
+    if (is_correct) {
+      game_state.pairs_discovered++
+      for (let i = 0; i < game_state.selections.length; i++) {
+        const selection = game_state.selections[i];
+        selection.is_guessed = true;
+      }
+    } else {
+      for (let i = 0; i < game_state.selections.length; i++) {
+        const selection = game_state.selections[i];
+        selection.is_hidden = true;
+      }
+    }
+    if (game_state.pairs_discovered == PAIRS) {
+      game_state.has_won = true;
+    }
+    game_state.selections = []
+  }
+
+  function delay(wait: number) {
+    if (p.millis() - game_state.last_update < wait) {
+      return false;
+    }
+    // this caused a nasty error haha i would look it deeper but im kinda tired
+    //game_state.last_update = p.millis()
+    return true;
   }
 
   p.draw = function() {
@@ -138,11 +172,16 @@ const sketch = (p: p5): any => {
           } else {
             p.image(pokemon.image, (col * CARD_W) + (PADDING * col), (row * CARD_H))
           }
-
         }
       }
+      if (delay(500)) {
+        check_game_state(game_state)
+      }
+      if (game_state.has_won) {
+        draw_text("what a loser", WIDTH / 2, HEIGHT);
+      }
     } else {
-      draw_text("LOADING...", WIDTH / 2, HEIGHT / 2);
+      draw_text("LOADING...", WIDTH / 2, HEIGHT);
     }
   }
 
@@ -169,10 +208,14 @@ const sketch = (p: p5): any => {
         break;
       }
     }
-    console.log(row, col);
-    game_state.pokemon_list[row][col].is_hidden = !game_state.pokemon_list[row][col].is_hidden;
-    //if (row && 0 <= col && game_state.pokemon_list[row].length > col) {
-    //}
+    if (row != undefined && 0 <= col && game_state.pokemon_list[row].length > col) {
+      const pokemon = game_state.pokemon_list[row][col]
+      if (!pokemon.is_guessed) {
+        game_state.last_update = p.millis()
+        pokemon.is_hidden = !pokemon.is_hidden;
+        game_state.selections.push(pokemon)
+      }
+    }
   }
 }
 new p5(sketch);
