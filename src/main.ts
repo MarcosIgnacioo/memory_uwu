@@ -47,11 +47,35 @@ interface Type {
   url: string
 }
 
+function get_random(max: number) {
+  const old_ids: number[] = []
+  return function randuwu(id?: number) {
+    if (id === undefined) {
+      id = Math.trunc(Math.random() * 800 + 1)
+    }
+    if (old_ids.length == 0) return id;
+    let already = false;
+    for (let i = 0; i < old_ids.length; i++) {
+      if (old_ids[i] == id) {
+        already
+        break
+      }
+    }
+    if (already) {
+      return randuwu(Math.trunc(Math.random() * max + 1))
+    } else {
+      old_ids.push(id)
+      return id;
+    }
+  }
+}
+
 
 async function get_pokemon_list(limit: number): Promise<Pokemon[]> {
   const pokemon_array: Pokemon[] = [];
+  const get_unique_pokemon_id = get_random(800);
   for (let i = 0; i < limit; i++) {
-    const id_fetch = Math.trunc(Math.random() * 800 + 1)
+    const id_fetch = get_unique_pokemon_id();
     const url = `https://pokeapi.co/api/v2/pokemon/${id_fetch}`
     const response = await fetch(url)
     const { sprites, name, id, types } = await response.json()
@@ -75,7 +99,9 @@ async function init_game_state(state: State) {
   state.row_number = PAIRS_TO_WIN
   const xd = (JSON.stringify(pokemon_list));
   for (let i = 0; i < state.row_number; i++) {
-    state.pokemon_list.push(JSON.parse(xd))
+    const pkmn_arr = JSON.parse(xd)
+    const shuffled = pkmn_arr.sort((_a: Pokemon, _b: Pokemon) => 0.5 - Math.random());
+    state.pokemon_list.push(shuffled)
   }
 }
 
@@ -158,12 +184,10 @@ const sketch = (p: p5): any => {
 
   p.draw = function() {
     p.background(255)
-    draw_text(`Clicked on: (${game_state.click_position.x} , ${game_state.click_position.y}) `, WIDTH / 3, HEIGHT / 2)
     if (game_state.pokemon_list.length) {
       for (let row = 0; row < game_state.pokemon_list.length; row++) {
         for (let col = 0; game_state.pokemon_list[row] && col < game_state.pokemon_list[row].length; col++) {
           const pokemon = game_state.pokemon_list[row][col];
-          //
           if (pokemon.is_hidden) {
             p.fill("#ff2756");
             p.stroke("#ccffff")
@@ -177,11 +201,11 @@ const sketch = (p: p5): any => {
       if (delay(500)) {
         check_game_state(game_state)
       }
-      if (game_state.has_won) {
-        draw_text("what a loser", WIDTH / 2, HEIGHT);
-      }
     } else {
       draw_text("LOADING...", WIDTH / 2, HEIGHT);
+    }
+    if (game_state.has_won) {
+      draw_text("what a loser u have memory or something like that", WIDTH / 2, HEIGHT);
     }
   }
 
@@ -198,8 +222,12 @@ const sketch = (p: p5): any => {
   }
 
   p.mouseClicked = function() {
+    if (game_state.selections.length == PAIRS_TO_WIN) {
+      return
+    }
     game_state.click_position = { x: p.mouseX, y: p.mouseY };
     const { x, y } = game_state.click_position;
+    // TODO: make this actually work when there are a lot of cards cause this is just lazy uwu
     let row = undefined;
     let col = Math.trunc(10 * (x / WIDTH));
     for (let i = 0; i < game_state.pokemon_list.length; i++) {
